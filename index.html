@@ -168,10 +168,6 @@
   .leaderboard-team { font-size: 11px; color: var(--muted); }
   .leaderboard-goals { font-family: var(--font-display); font-size: 18px; color: var(--accent); min-width: 30px; text-align: right; }
 
-  .team-stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; margin-bottom: 10px; cursor: pointer; transition: border-color .15s; }
-  .team-stat-card:hover { border-color: var(--muted); }
-  .team-stat-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-size: 13px; font-weight: 600; }
-  .team-stat-header .vs { color: var(--muted); font-weight: 400; font-size: 11px; }
   .stat-bar-row { margin-bottom: 8px; }
   .stat-bar-labels { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-bottom: 3px; }
   .stat-bar-labels .stat-name { color: var(--text); font-weight: 500; }
@@ -224,7 +220,7 @@
 <div class="tabs">
   <button class="tab-btn active" onclick="showTab('schedule',this)">📅 Schedule</button>
   <button class="tab-btn" onclick="showTab('bracket',this)">🏆 Bracket</button>
-  <button class="tab-btn" onclick="showTab('stats',this)">📊 Stats</button>
+  <button class="tab-btn" onclick="showTab('stats',this)">👟 Golden Boot Race</button>
 </div>
 
 <!-- ── Schedule tab ── -->
@@ -263,13 +259,11 @@
   </div>
 </div>
 
-<!-- ── Stats tab ── -->
+<!-- ── Golden Boot Race tab ── -->
 <div class="tab-panel" id="tab-stats">
   <div class="stats-panel">
     <div class="stats-section-title">⚽ Top Scorers</div>
     <div id="leaderboardContent"><div class="loading"><div class="spinner"></div>Loading…</div></div>
-    <div class="stats-section-title">📊 Team Stats by Match</div>
-    <div id="teamStatsContent"></div>
   </div>
 </div>
 
@@ -530,48 +524,35 @@ function renderLeaderboard() {
   document.getElementById('leaderboardContent').innerHTML = html;
 }
 
-function renderTeamStats() {
-  // Only matches where ESPN has actually populated statistics (non-empty objects)
-  const withStats = allMatches.filter(m =>
-    (Object.keys(m.homeStats||{}).length || Object.keys(m.awayStats||{}).length)
-  ).sort((a,b) => new Date(b.date) - new Date(a.date)); // most recent first
+// Build the team-stats comparison bars for a single match — used inside the
+// match detail modal. Returns '' if ESPN hasn't populated stats for this match.
+function matchStatsHtml(m) {
+  const hasStats = Object.keys(m.homeStats||{}).length || Object.keys(m.awayStats||{}).length;
+  if (!hasStats) return '';
 
-  if (!withStats.length) {
-    document.getElementById('teamStatsContent').innerHTML = '<div class="no-stats-msg">No team stats available yet — these populate once a match kicks off.</div>';
-    return;
-  }
-
-  const html = withStats.map(m => {
-    const sl = STAGE_LABEL[m.stage] || 'GROUP';
-    const bars = STAT_BAR_ORDER.map(key => {
-      const hv = parseFloat(m.homeStats[key]);
-      const av = parseFloat(m.awayStats[key]);
-      if (isNaN(hv) && isNaN(av)) return '';
-      const h = isNaN(hv) ? 0 : hv, a = isNaN(av) ? 0 : av;
-      const total = h + a || 1;
-      const hPct = (h/total*100).toFixed(1), aPct = (a/total*100).toFixed(1);
-      return `<div class="stat-bar-row">
-        <div class="stat-bar-labels"><span>${m.homeStats[key] ?? '–'}</span><span class="stat-name">${STAT_LABELS[key]||key}</span><span>${m.awayStats[key] ?? '–'}</span></div>
-        <div class="stat-bar-track"><div class="stat-bar-home" style="width:${hPct}%"></div><div class="stat-bar-away" style="width:${aPct}%"></div></div>
-      </div>`;
-    }).join('');
-
-    return `<div class="team-stat-card" onclick="openMatchModal('${m.id}')">
-      <div class="team-stat-header">
-        <span>${flag(m.home)} ${m.home}</span>
-        <span class="vs">${sl} · ${m.istDate}</span>
-        <span>${m.away} ${flag(m.away)}</span>
-      </div>
-      ${bars || '<div class="no-stats-msg">No detailed stats for this match.</div>'}
+  const bars = STAT_BAR_ORDER.map(key => {
+    const hv = parseFloat(m.homeStats[key]);
+    const av = parseFloat(m.awayStats[key]);
+    if (isNaN(hv) && isNaN(av)) return '';
+    const h = isNaN(hv) ? 0 : hv, a = isNaN(av) ? 0 : av;
+    const total = h + a || 1;
+    const hPct = (h/total*100).toFixed(1), aPct = (a/total*100).toFixed(1);
+    return `<div class="stat-bar-row">
+      <div class="stat-bar-labels"><span>${m.homeStats[key] ?? '–'}</span><span class="stat-name">${STAT_LABELS[key]||key}</span><span>${m.awayStats[key] ?? '–'}</span></div>
+      <div class="stat-bar-track"><div class="stat-bar-home" style="width:${hPct}%"></div><div class="stat-bar-away" style="width:${aPct}%"></div></div>
     </div>`;
   }).join('');
 
-  document.getElementById('teamStatsContent').innerHTML = html;
+  if (!bars) return '';
+
+  return `<div class="modal-section">
+    <div class="modal-section-title">Team Stats</div>
+    ${bars}
+  </div>`;
 }
 
 function renderStatsTab() {
   renderLeaderboard();
-  renderTeamStats();
 }
 
 function openMatchModal(matchId) {
@@ -636,6 +617,7 @@ function openMatchModal(matchId) {
       <div class="modal-section-title">Match Events</div>
       ${eventsHtml}
     </div>
+    ${matchStatsHtml(m)}
     ${recapHtml}
   `;
 
