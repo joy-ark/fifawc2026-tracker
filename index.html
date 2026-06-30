@@ -95,39 +95,33 @@
   .stage-badge.tp  { background:rgba(120,120,120,.1); color:var(--muted); }
   .stage-badge.final { background:rgba(201,167,58,.2); color:var(--accent); border:1px solid rgba(201,167,58,.3); }
 
-  /* ── Bracket panel (vertical) ── */
-  .bracket-panel { padding: 20px 24px 50px; max-width: 480px; margin: 0 auto; }
-  .bracket-title { font-family: var(--font-display); font-size: 14px; letter-spacing: 2px; color: var(--muted); margin-bottom: 20px; text-align: center; }
+  /* ── Bracket panel (horizontal mirrored) ── */
+  .bracket-panel { padding: 20px 24px 40px; overflow-x: auto; }
+  .bracket-title { font-family: var(--font-display); font-size: 14px; letter-spacing: 2px; color: var(--muted); margin-bottom: 20px; }
 
-  .bracket-round-block { margin-bottom: 8px; }
-  .bracket-round-header { display: flex; align-items: baseline; gap: 8px; margin: 28px 0 12px; }
-  .bracket-round-header:first-child { margin-top: 0; }
-  .bracket-round-name { font-family: var(--font-display); font-size: 17px; letter-spacing: 1px; color: var(--accent); }
-  .bracket-round-dates { font-size: 10px; color: var(--muted); letter-spacing: .5px; }
-  .bracket-round-line { flex: 1; height: 1px; background: var(--border); }
-
-  .bracket-vline { width: 2px; background: var(--border); margin: 0 auto; height: 16px; }
+  .round-header { font-size: 10px; font-weight: 700; letter-spacing: 1px; color: var(--muted); text-align: center; padding: 0 8px 12px; text-transform: uppercase; white-space: nowrap; }
+  .round-header small { font-weight: 400; letter-spacing: 0; display: block; margin-top: 2px; font-size: 9px; }
 
   /* Match card */
-  .b-match { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; font-size: 12px; margin-bottom: 10px; transition: border-color .2s; }
+  .b-match { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; font-size: 12px; margin: 0 6px; transition: border-color .2s; min-width: 140px; }
   .b-match:hover { border-color: var(--muted); }
   .b-match.live { border-color: rgba(232,64,64,.5); }
 
-  .b-team { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--border); min-height: 36px; }
+  .b-team { display: flex; align-items: center; gap: 7px; padding: 6px 10px; border-bottom: 1px solid var(--border); min-height: 32px; }
   .b-team:last-child { border-bottom: none; }
   .b-team.winner { background: rgba(61,186,106,.07); }
   .b-team.winner .b-team-name { color: var(--win); font-weight: 700; }
-  .b-team-flag { font-size: 16px; line-height: 1; flex-shrink: 0; }
-  .b-team-name { font-size: 13px; font-weight: 500; color: var(--text); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .b-team-score { font-family: var(--font-display); font-size: 16px; color: var(--text); margin-left: auto; min-width: 16px; text-align: right; }
+  .b-team-flag { font-size: 14px; line-height: 1; flex-shrink: 0; }
+  .b-team-name { font-size: 11px; font-weight: 500; color: var(--text); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .b-team-score { font-family: var(--font-display); font-size: 14px; color: var(--text); margin-left: auto; min-width: 14px; text-align: right; }
   .b-team.tbd .b-team-name { color: var(--muted); font-weight: 400; font-style: italic; }
 
-  .b-match-meta { font-size: 10px; color: var(--muted); padding: 4px 12px; background: var(--surface2); border-top: 1px solid var(--border); display: flex; justify-content: space-between; }
+  .b-match-meta { font-size: 9px; color: var(--muted); padding: 3px 10px; background: var(--surface2); border-top: 1px solid var(--border); display: flex; justify-content: space-between; }
 
   /* Trophy / final marker */
-  .trophy-slot { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; margin: 24px 0; }
-  .trophy-icon { font-size: 40px; }
-  .trophy-date { font-size: 11px; color: var(--muted); font-weight: 600; letter-spacing: 1px; }
+  .trophy-slot { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 80px; gap: 8px; }
+  .trophy-icon { font-size: 36px; }
+  .trophy-date { font-size: 10px; color: var(--muted); font-weight: 600; letter-spacing: 1px; }
 
   /* ── Misc ── */
   .loading { text-align:center; padding:60px; color:var(--muted); }
@@ -146,7 +140,7 @@
     .score{font-size:20px;}
     .team-flag{font-size:17px;}
     .title-block h1{font-size:17px;}
-    .bracket-panel{padding:16px 14px 40px; max-width:100%;}
+    .bracket-panel{padding:16px 14px 40px;}
   }
 </style>
 </head>
@@ -522,81 +516,137 @@ function tbdSlot(feeder1, feeder2) {
 function renderBracket() {
   const lk = buildMatchLookup();
 
-  // R32 matches, in a fixed top-to-bottom order (left and right merged into one flow)
   const r32 = {
-    0: lk['760489'], 1: lk['760492'], 2: lk['760486'], 3: lk['760488'],
-    4: lk['760497'], 5: lk['760496'], 6: lk['760494'], 7: lk['760493'],
-    8: lk['760487'], 9: lk['760490'], 10: lk['760491'], 11: lk['760495'],
-    12: lk['760500'], 13: lk['760499'], 14: lk['760498'], 15: lk['760501'],
+    L0: lk['760489'], L1: lk['760492'], L2: lk['760486'], L3: lk['760488'],
+    L4: lk['760497'], L5: lk['760496'], L6: lk['760494'], L7: lk['760493'],
+    R0: lk['760487'], R1: lk['760490'], R2: lk['760491'], R3: lk['760495'],
+    R4: lk['760500'], R5: lk['760499'], R6: lk['760498'], R7: lk['760501'],
   };
 
   const r16matches = allMatches.filter(m => m.stage === 'r16').sort((a,b) => new Date(a.date)-new Date(b.date));
-  const r16 = {};
-  for (let i = 0; i < 8; i++) r16[i] = r16matches[i] || null;
+  const r16 = {
+    L0: r16matches[0]||null, L1: r16matches[1]||null,
+    L2: r16matches[2]||null, L3: r16matches[3]||null,
+    R0: r16matches[4]||null, R1: r16matches[5]||null,
+    R2: r16matches[6]||null, R3: r16matches[7]||null,
+  };
 
   const qfMatches = allMatches.filter(m => m.stage === 'qf').sort((a,b) => new Date(a.date)-new Date(b.date));
-  const qf = { 0: qfMatches[0]||null, 1: qfMatches[1]||null, 2: qfMatches[2]||null, 3: qfMatches[3]||null };
+  const qf = { L0: qfMatches[0]||null, L1: qfMatches[1]||null, R0: qfMatches[2]||null, R1: qfMatches[3]||null };
 
   const sfMatches = allMatches.filter(m => m.stage === 'sf').sort((a,b) => new Date(a.date)-new Date(b.date));
-  const sf = { 0: sfMatches[0]||null, 1: sfMatches[1]||null };
+  const sf = { L: sfMatches[0]||null, R: sfMatches[1]||null };
 
   const tpMatch = allMatches.find(m => m.stage === 'tp') || null;
   const finalMatch = allMatches.find(m => m.stage === 'final') || null;
 
   const slot = (match, f1, f2, label) => match ? bMatchHtml(match, label) : tbdSlot(f1, f2);
 
-  // Build R32 list in pair order: each consecutive pair feeds into one R16 slot
-  let r32Html = '';
-  for (let i = 0; i < 16; i++) r32Html += bMatchHtml(r32[i], 'R32');
-
-  let r16Html = '';
-  for (let i = 0; i < 8; i++) {
-    r16Html += slot(r16[i], r32[i*2], r32[i*2+1], 'R16');
-  }
-
-  let qfHtml = '';
-  for (let i = 0; i < 4; i++) {
-    qfHtml += slot(qf[i], r16[i*2], r16[i*2+1], 'QF');
-  }
-
-  let sfHtml = '';
-  for (let i = 0; i < 2; i++) {
-    sfHtml += slot(sf[i], qf[i*2], qf[i*2+1], 'SF');
-  }
-
-  const finalHtml = finalMatch ? bMatchHtml(finalMatch, 'FINAL') : tbdSlot(sf[0], sf[1]);
-  const tpHtml = tpMatch ? bMatchHtml(tpMatch, '3RD PLACE') : tbdSlot(null, null);
+  const BH = 72; // base match card height (px) — keep in sync with CSS min-height stack
+  const GAP = 8;
 
   const html = `
-    <div class="bracket-round-block">
-      <div class="bracket-round-header"><span class="bracket-round-name">Round of 32</span><span class="bracket-round-dates">Jun 28 – Jul 3</span><div class="bracket-round-line"></div></div>
-      ${r32Html}
+  <div style="display:flex; align-items:stretch; gap:0; min-width:1000px;">
+
+    <!-- LEFT: R32 -->
+    <div style="display:flex; flex-direction:column; gap:${GAP}px; width:148px; flex-shrink:0;">
+      <div class="round-header">Round of 32<br><small>Jun 28 – Jul 3</small></div>
+      ${bMatchHtml(r32.L0,'R32')}
+      ${bMatchHtml(r32.L1,'R32')}
+      ${bMatchHtml(r32.L2,'R32')}
+      ${bMatchHtml(r32.L3,'R32')}
+      ${bMatchHtml(r32.L4,'R32')}
+      ${bMatchHtml(r32.L5,'R32')}
+      ${bMatchHtml(r32.L6,'R32')}
+      ${bMatchHtml(r32.L7,'R32')}
     </div>
-    <div class="bracket-round-block">
-      <div class="bracket-round-header"><span class="bracket-round-name">Round of 16</span><span class="bracket-round-dates">Jul 4 – 7</span><div class="bracket-round-line"></div></div>
-      ${r16Html}
-    </div>
-    <div class="bracket-round-block">
-      <div class="bracket-round-header"><span class="bracket-round-name">Quarterfinals</span><span class="bracket-round-dates">Jul 9 – 11</span><div class="bracket-round-line"></div></div>
-      ${qfHtml}
-    </div>
-    <div class="bracket-round-block">
-      <div class="bracket-round-header"><span class="bracket-round-name">Semifinals</span><span class="bracket-round-dates">Jul 14 – 15</span><div class="bracket-round-line"></div></div>
-      ${sfHtml}
-    </div>
-    <div class="bracket-round-block">
-      <div class="bracket-round-header"><span class="bracket-round-name">Final</span><span class="bracket-round-dates">Jul 19</span><div class="bracket-round-line"></div></div>
-      ${finalHtml}
-      <div class="trophy-slot">
-        <div class="trophy-icon">🏆</div>
-        <div class="trophy-date">CHAMPIONS · JULY 19</div>
+
+    <!-- LEFT: R16 -->
+    <div style="display:flex; flex-direction:column; gap:0; width:148px; flex-shrink:0; padding-top:${BH/2+GAP/2}px;">
+      <div class="round-header">Round of 16<br><small>Jul 4 – 7</small></div>
+      <div style="display:flex; flex-direction:column; gap:${BH+GAP}px;">
+        ${slot(r16.L0, r32.L0, r32.L1, 'R16')}
+        ${slot(r16.L1, r32.L2, r32.L3, 'R16')}
+        ${slot(r16.L2, r32.L4, r32.L5, 'R16')}
+        ${slot(r16.L3, r32.L6, r32.L7, 'R16')}
       </div>
     </div>
-    <div class="bracket-round-block">
-      <div class="bracket-round-header"><span class="bracket-round-name">3rd Place</span><span class="bracket-round-dates">Jul 18</span><div class="bracket-round-line"></div></div>
-      ${tpHtml}
+
+    <!-- LEFT: QF -->
+    <div style="display:flex; flex-direction:column; gap:0; width:148px; flex-shrink:0; padding-top:${(BH+GAP)*1.5+BH/2}px;">
+      <div class="round-header">Quarterfinals<br><small>Jul 9 – 11</small></div>
+      <div style="display:flex; flex-direction:column; gap:${(BH+GAP)*3}px;">
+        ${slot(qf.L0, r16.L0, r16.L1, 'QF')}
+        ${slot(qf.L1, r16.L2, r16.L3, 'QF')}
+      </div>
     </div>
-  `;
+
+    <!-- LEFT: SF -->
+    <div style="display:flex; flex-direction:column; gap:0; width:148px; flex-shrink:0; padding-top:${(BH+GAP)*3.5+BH/2}px;">
+      <div class="round-header">Semifinal<br><small>Jul 14</small></div>
+      ${slot(sf.L, qf.L0, qf.L1, 'SF')}
+    </div>
+
+    <!-- CENTER: Final + Trophy + 3rd -->
+    <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; min-width:160px; flex-shrink:0; gap:16px; padding: 40px 8px;">
+      <div class="round-header" style="text-align:center;">Final<br><small>Jul 19</small></div>
+      ${finalMatch ? bMatchHtml(finalMatch, 'FINAL') : `<div class="b-match">
+        <div class="b-team tbd"><span class="b-team-name">TBD</span></div>
+        <div class="b-team tbd"><span class="b-team-name">TBD</span></div>
+        <div class="b-match-meta"><span>FINAL · Jul 19, 3:00 PM ET</span></div>
+      </div>`}
+      <div class="trophy-slot">
+        <div class="trophy-icon">🏆</div>
+        <div class="trophy-date">CHAMPIONS</div>
+      </div>
+      <div class="round-header" style="text-align:center;">3rd Place<br><small>Jul 18</small></div>
+      ${tpMatch ? bMatchHtml(tpMatch, '3RD') : `<div class="b-match">
+        <div class="b-team tbd"><span class="b-team-name">TBD</span></div>
+        <div class="b-team tbd"><span class="b-team-name">TBD</span></div>
+        <div class="b-match-meta"><span>3RD · Jul 18, 5:00 PM ET</span></div>
+      </div>`}
+    </div>
+
+    <!-- RIGHT: SF -->
+    <div style="display:flex; flex-direction:column; gap:0; width:148px; flex-shrink:0; padding-top:${(BH+GAP)*3.5+BH/2}px;">
+      <div class="round-header">Semifinal<br><small>Jul 15</small></div>
+      ${slot(sf.R, qf.R0, qf.R1, 'SF')}
+    </div>
+
+    <!-- RIGHT: QF -->
+    <div style="display:flex; flex-direction:column; gap:0; width:148px; flex-shrink:0; padding-top:${(BH+GAP)*1.5+BH/2}px;">
+      <div class="round-header">Quarterfinals<br><small>Jul 9 – 11</small></div>
+      <div style="display:flex; flex-direction:column; gap:${(BH+GAP)*3}px;">
+        ${slot(qf.R0, r16.R0, r16.R1, 'QF')}
+        ${slot(qf.R1, r16.R2, r16.R3, 'QF')}
+      </div>
+    </div>
+
+    <!-- RIGHT: R16 -->
+    <div style="display:flex; flex-direction:column; gap:0; width:148px; flex-shrink:0; padding-top:${BH/2+GAP/2}px;">
+      <div class="round-header">Round of 16<br><small>Jul 4 – 7</small></div>
+      <div style="display:flex; flex-direction:column; gap:${BH+GAP}px;">
+        ${slot(r16.R0, r32.R0, r32.R1, 'R16')}
+        ${slot(r16.R1, r32.R2, r32.R3, 'R16')}
+        ${slot(r16.R2, r32.R4, r32.R5, 'R16')}
+        ${slot(r16.R3, r32.R6, r32.R7, 'R16')}
+      </div>
+    </div>
+
+    <!-- RIGHT: R32 -->
+    <div style="display:flex; flex-direction:column; gap:${GAP}px; width:148px; flex-shrink:0;">
+      <div class="round-header">Round of 32<br><small>Jun 28 – Jul 3</small></div>
+      ${bMatchHtml(r32.R0,'R32')}
+      ${bMatchHtml(r32.R1,'R32')}
+      ${bMatchHtml(r32.R2,'R32')}
+      ${bMatchHtml(r32.R3,'R32')}
+      ${bMatchHtml(r32.R4,'R32')}
+      ${bMatchHtml(r32.R5,'R32')}
+      ${bMatchHtml(r32.R6,'R32')}
+      ${bMatchHtml(r32.R7,'R32')}
+    </div>
+
+  </div>`;
 
   document.getElementById('bracketContent').innerHTML = html;
 }
