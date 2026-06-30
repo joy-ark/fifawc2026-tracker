@@ -67,7 +67,7 @@
   .day-today { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; color: var(--accent); background: rgba(201,167,58,.1); border: 1px solid rgba(201,167,58,.25); padding: 2px 7px; border-radius: 4px; }
   .day-date { font-family: var(--font-display); font-size: 18px; color: var(--text); letter-spacing: 1px; }
   .day-line { flex: 1; height: 1px; background: var(--border); }
-  .match-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; margin-bottom: 8px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 14px; position: relative; overflow: hidden; transition: border-color .15s; }
+  .match-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; margin-bottom: 8px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 14px; position: relative; overflow: hidden; transition: border-color .15s; cursor: pointer; }
   .match-card::before { content:''; position:absolute; left:0;top:0;bottom:0; width:3px; background:var(--border); }
   .match-card.live::before { background: var(--live); }
   .match-card.finished::before { background: var(--win); }
@@ -103,7 +103,7 @@
   .round-header small { font-weight: 400; letter-spacing: 0; display: block; margin-top: 2px; font-size: 9px; }
 
   /* Match card */
-  .b-match { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; font-size: 12px; margin: 0 6px; transition: border-color .2s; min-width: 140px; }
+  .b-match { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; font-size: 12px; margin: 0 6px; transition: border-color .2s; min-width: 140px; cursor: pointer; }
   .b-match:hover { border-color: var(--muted); }
   .b-match.live { border-color: rgba(232,64,64,.5); }
 
@@ -122,6 +122,38 @@
   .trophy-slot { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 80px; gap: 8px; }
   .trophy-icon { font-size: 36px; }
   .trophy-date { font-size: 10px; color: var(--muted); font-weight: 600; letter-spacing: 1px; }
+
+  /* ── Match detail modal ── */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 200; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto; }
+  .modal-overlay.visible { display: flex; }
+  .modal-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; max-width: 480px; width: 100%; overflow: hidden; animation: modalIn .15s ease-out; }
+  @keyframes modalIn { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform: translateY(0); } }
+
+  .modal-header { padding: 18px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  .modal-stage { font-size: 10px; font-weight: 700; letter-spacing: 1px; color: var(--accent); text-transform: uppercase; margin-bottom: 4px; }
+  .modal-venue { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .modal-close { background: var(--surface2); border: 1px solid var(--border); color: var(--muted); width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 14px; line-height: 1; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+  .modal-close:hover { color: var(--text); border-color: var(--accent); }
+
+  .modal-score-row { display: flex; align-items: center; justify-content: center; gap: 24px; padding: 24px 20px; }
+  .modal-team { display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 1; }
+  .modal-team-flag { font-size: 32px; }
+  .modal-team-name { font-size: 13px; font-weight: 600; text-align: center; color: var(--text); }
+  .modal-team-name.winner { color: var(--win); }
+  .modal-score-big { font-family: var(--font-display); font-size: 40px; letter-spacing: 2px; color: var(--text); display: flex; align-items: center; gap: 10px; }
+  .modal-score-big .vs-divider { font-size: 18px; color: var(--muted); font-family: var(--font-body); }
+  .modal-status-line { text-align: center; font-size: 11px; color: var(--muted); padding: 0 20px 16px; }
+
+  .modal-section { padding: 16px 20px; border-top: 1px solid var(--border); }
+  .modal-section-title { font-size: 10px; font-weight: 700; letter-spacing: 1px; color: var(--muted); text-transform: uppercase; margin-bottom: 12px; }
+  .modal-recap { font-size: 13px; color: var(--text); line-height: 1.5; }
+
+  .event-row { display: flex; align-items: flex-start; gap: 10px; padding: 7px 0; font-size: 12px; }
+  .event-minute { font-family: var(--font-display); font-size: 13px; color: var(--muted); min-width: 38px; flex-shrink: 0; }
+  .event-icon { font-size: 13px; flex-shrink: 0; width: 18px; text-align: center; }
+  .event-text { flex: 1; color: var(--text); }
+  .event-team-tag { font-size: 10px; color: var(--muted); margin-left: 4px; }
+  .event-empty { font-size: 12px; color: var(--muted); font-style: italic; text-align: center; padding: 8px 0; }
 
   /* ── Misc ── */
   .loading { text-align:center; padding:60px; color:var(--muted); }
@@ -203,6 +235,11 @@
     <div class="bracket-title">KNOCKOUT BRACKET · TIMES IN IST · UPDATES AFTER EACH MATCH</div>
     <div id="bracketContent"><div class="loading"><div class="spinner"></div>Loading bracket…</div></div>
   </div>
+</div>
+
+<!-- ── Match detail modal ── -->
+<div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this) closeMatchModal()">
+  <div class="modal-panel" id="modalPanel"></div>
 </div>
 
 <script>
@@ -293,6 +330,21 @@ async function fetchAll() {
         statusDetail: status.shortDetail || '',
         venue: comp.venue?.fullName || '',
         city: (comp.venue?.address?.city || '').split(',')[0],
+        attendance: comp.attendance || null,
+        events: (comp.details || []).map(d => ({
+          type: d.type?.text || '',
+          minute: d.clock?.displayValue || '',
+          teamId: d.team?.id || null,
+          scoringPlay: !!d.scoringPlay,
+          yellowCard: !!d.yellowCard,
+          redCard: !!d.redCard,
+          ownGoal: !!d.ownGoal,
+          penaltyKick: !!d.penaltyKick,
+          players: (d.athletesInvolved || []).map(a => a.displayName || a.shortName || '?'),
+        })),
+        recap: comp.headlines?.[0]?.description || '',
+        homeId: home.team?.id || null,
+        awayId: away.team?.id || null,
         _slug: ev.season?.slug || '',
         _altNote: comp.altGameNote || '',
       };
@@ -334,6 +386,114 @@ function toggleTheme() {
   document.body.setAttribute('data-theme', isDark ? 'light' : 'dark');
   document.getElementById('themeBtn').textContent = isDark ? '🌙 Dark' : '☀️ Light';
 }
+
+// ════════════════════════════════════════════════════════════
+// Match detail modal (events, attendance, recap)
+// ════════════════════════════════════════════════════════════
+// Verified from real ESPN response: competitions[0].details[] holds the event
+// timeline (goals, cards, etc). Fields used: type.text, clock.displayValue,
+// team.id, scoringPlay, yellowCard, redCard, ownGoal, penaltyKick,
+// athletesInvolved[].displayName. competitions[0].attendance and
+// competitions[0].headlines[0].description are also captured at fetch time.
+
+function eventIcon(ev) {
+  if (ev.redCard) return '🟥';
+  if (ev.yellowCard) return '🟨';
+  if (ev.ownGoal) return '⚽️➖';
+  if (ev.penaltyKick && ev.scoringPlay) return '⚽️🅿️';
+  if (ev.scoringPlay) return '⚽️';
+  return '•';
+}
+
+function eventLabel(ev) {
+  const players = ev.players.length ? ev.players.join(', ') : '';
+  if (ev.redCard) return `Red card${players ? ' — '+players : ''}`;
+  if (ev.yellowCard) return `Yellow card${players ? ' — '+players : ''}`;
+  if (ev.ownGoal) return `Own goal${players ? ' — '+players : ''}`;
+  if (ev.scoringPlay) {
+    const tag = ev.penaltyKick ? ' (penalty)' : ev.type.toLowerCase().includes('header') ? ' (header)' : '';
+    return `Goal${tag}${players ? ' — '+players : ''}`;
+  }
+  return `${ev.type || 'Event'}${players ? ' — '+players : ''}`;
+}
+
+function openMatchModal(matchId) {
+  const m = allMatches.find(x => x.id === matchId);
+  if (!m) return;
+
+  const isDone = m.state === 'post', isLive = m.state === 'in', isPre = m.state === 'pre';
+  const hw = m.homeWinner || m.homeAdvance, aw = m.awayWinner || m.awayAdvance;
+  const sl = STAGE_LABEL[m.stage] || 'GROUP';
+
+  let statusLine = '';
+  if (isDone) statusLine = 'Full time';
+  else if (isLive) statusLine = m.statusDetail || 'Live';
+  else statusLine = `Kicks off ${m.istShort} IST`;
+
+  // Events sorted chronologically by their order in the array (ESPN already orders them)
+  const eventsHtml = m.events.length
+    ? m.events.map(ev => {
+        const teamTag = ev.teamId === m.homeId ? m.home : ev.teamId === m.awayId ? m.away : '';
+        return `<div class="event-row">
+          <span class="event-minute">${ev.minute || ''}</span>
+          <span class="event-icon">${eventIcon(ev)}</span>
+          <span class="event-text">${eventLabel(ev)}${teamTag ? `<span class="event-team-tag">(${teamTag})</span>` : ''}</span>
+        </div>`;
+      }).join('')
+    : `<div class="event-empty">${isPre ? 'Match hasn\'t started yet.' : 'No match events recorded.'}</div>`;
+
+  const recapHtml = m.recap
+    ? `<div class="modal-section"><div class="modal-section-title">Recap</div><div class="modal-recap">${m.recap}</div></div>`
+    : '';
+
+  const attendanceHtml = m.attendance
+    ? `<div class="modal-status-line">👥 Attendance: ${m.attendance.toLocaleString('en-IN')}</div>`
+    : '';
+
+  document.getElementById('modalPanel').innerHTML = `
+    <div class="modal-header">
+      <div>
+        <div class="modal-stage">${sl} · ${m.istDate}</div>
+        <div class="modal-venue">📍 ${m.venue}${m.city ? ', '+m.city : ''}</div>
+      </div>
+      <button class="modal-close" onclick="closeMatchModal()">✕</button>
+    </div>
+    <div class="modal-score-row">
+      <div class="modal-team">
+        <span class="modal-team-flag">${flag(m.home)}</span>
+        <span class="modal-team-name${hw?' winner':''}">${m.home}</span>
+      </div>
+      <div class="modal-score-big">
+        <span>${isDone||isLive ? m.homeScore : '–'}</span>
+        <span class="vs-divider">${isPre ? 'VS' : '–'}</span>
+        <span>${isDone||isLive ? m.awayScore : '–'}</span>
+      </div>
+      <div class="modal-team">
+        <span class="modal-team-flag">${flag(m.away)}</span>
+        <span class="modal-team-name${aw?' winner':''}">${m.away}</span>
+      </div>
+    </div>
+    <div class="modal-status-line">${statusLine}</div>
+    ${attendanceHtml}
+    <div class="modal-section">
+      <div class="modal-section-title">Match Events</div>
+      ${eventsHtml}
+    </div>
+    ${recapHtml}
+  `;
+
+  document.getElementById('modalOverlay').classList.add('visible');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeMatchModal() {
+  document.getElementById('modalOverlay').classList.remove('visible');
+  document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeMatchModal();
+});
 
 // ════════════════════════════════════════════════════════════
 // Schedule rendering
@@ -396,7 +556,7 @@ function renderSchedule() {
         : isLive ? `<span class="status-pill live">🔴 ${m.statusDetail||'LIVE'}</span>`
         : `<span class="status-pill scheduled">${m.istTime}</span>`;
       const sl = STAGE_LABEL[m.stage]||'GROUP', sc = STAGE_CLASS[m.stage]||'';
-      html += `<div class="match-card ${cardClass}">
+      html += `<div class="match-card ${cardClass}" onclick="openMatchModal('${m.id}')">
         <div class="team home"><span class="team-flag">${flag(m.home)}</span><span class="team-name">${m.home}</span></div>
         <div class="score-block"><div class="score ${scoreClass}">${scoreHtml}</div>${pill}</div>
         <div class="team away"><span class="team-flag">${flag(m.away)}</span><span class="team-name">${m.away}</span></div>
@@ -477,7 +637,7 @@ function bMatchHtml(m, label) {
   const as = isDone||isLive ? m.awayScore : '';
   const liveClass = isLive ? ' live' : '';
 
-  return `<div class="b-match${liveClass}">
+  return `<div class="b-match${liveClass}" onclick="openMatchModal('${m.id}')">
     <div class="b-team${hw?' winner':''}">
       <span class="b-team-flag">${flag(m.home)}</span>
       <span class="b-team-name">${m.home}</span>
