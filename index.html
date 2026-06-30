@@ -155,6 +155,31 @@
   .event-team-tag { font-size: 10px; color: var(--muted); margin-left: 4px; }
   .event-empty { font-size: 12px; color: var(--muted); font-style: italic; text-align: center; padding: 8px 0; }
 
+  /* ── Stats tab ── */
+  .stats-panel { padding: 20px 24px 40px; max-width: 700px; margin: 0 auto; }
+  .stats-section-title { font-family: var(--font-display); font-size: 16px; letter-spacing: 1px; color: var(--accent); margin: 28px 0 12px; }
+  .stats-section-title:first-child { margin-top: 0; }
+
+  .leaderboard-row { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 6px; }
+  .leaderboard-rank { font-family: var(--font-display); font-size: 16px; color: var(--muted); min-width: 22px; }
+  .leaderboard-rank.top { color: var(--accent); }
+  .leaderboard-flag { font-size: 18px; }
+  .leaderboard-name { flex: 1; font-size: 13px; font-weight: 600; color: var(--text); }
+  .leaderboard-team { font-size: 11px; color: var(--muted); }
+  .leaderboard-goals { font-family: var(--font-display); font-size: 18px; color: var(--accent); min-width: 30px; text-align: right; }
+
+  .team-stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; margin-bottom: 10px; cursor: pointer; transition: border-color .15s; }
+  .team-stat-card:hover { border-color: var(--muted); }
+  .team-stat-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-size: 13px; font-weight: 600; }
+  .team-stat-header .vs { color: var(--muted); font-weight: 400; font-size: 11px; }
+  .stat-bar-row { margin-bottom: 8px; }
+  .stat-bar-labels { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-bottom: 3px; }
+  .stat-bar-labels .stat-name { color: var(--text); font-weight: 500; }
+  .stat-bar-track { display: flex; height: 5px; border-radius: 3px; overflow: hidden; background: var(--border); }
+  .stat-bar-home { background: var(--accent2); }
+  .stat-bar-away { background: var(--accent); }
+  .no-stats-msg { font-size: 12px; color: var(--muted); font-style: italic; text-align: center; padding: 30px 0; }
+
   /* ── Misc ── */
   .loading { text-align:center; padding:60px; color:var(--muted); }
   .spinner { width:32px;height:32px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 16px; }
@@ -199,6 +224,7 @@
 <div class="tabs">
   <button class="tab-btn active" onclick="showTab('schedule',this)">📅 Schedule</button>
   <button class="tab-btn" onclick="showTab('bracket',this)">🏆 Bracket</button>
+  <button class="tab-btn" onclick="showTab('stats',this)">📊 Stats</button>
 </div>
 
 <!-- ── Schedule tab ── -->
@@ -234,6 +260,16 @@
   <div class="bracket-panel">
     <div class="bracket-title">KNOCKOUT BRACKET · TIMES IN IST · UPDATES AFTER EACH MATCH</div>
     <div id="bracketContent"><div class="loading"><div class="spinner"></div>Loading bracket…</div></div>
+  </div>
+</div>
+
+<!-- ── Stats tab ── -->
+<div class="tab-panel" id="tab-stats">
+  <div class="stats-panel">
+    <div class="stats-section-title">⚽ Top Scorers</div>
+    <div id="leaderboardContent"><div class="loading"><div class="spinner"></div>Loading…</div></div>
+    <div class="stats-section-title">📊 Team Stats by Match</div>
+    <div id="teamStatsContent"></div>
   </div>
 </div>
 
@@ -305,11 +341,20 @@ async function fetchAll() {
 
     allMatches = (data.events || []).map(ev => {
       const comp = ev.competitions?.[0] || {};
-      const status = comp.status?.type || {};
+      const statusObj = comp.status || {};
+      const status = statusObj.type || {};
       const comps = comp.competitors || [];
       const home = comps.find(c => c.homeAway === 'home') || comps[0] || {};
       const away = comps.find(c => c.homeAway === 'away') || comps[1] || {};
       const ist = toIST(ev.date);
+
+      // Build a {abbreviation: displayValue} map per team from statistics[]
+      const statMap = (competitor) => {
+        const out = {};
+        (competitor.statistics || []).forEach(s => { out[s.abbreviation] = s.displayValue; });
+        return out;
+      };
+
       const m = {
         id: ev.id,
         date: ev.date,
@@ -328,6 +373,11 @@ async function fetchAll() {
         awayAdvance: away.advance || false,
         state: status.state || 'pre',
         statusDetail: status.shortDetail || '',
+        // Verified from real ESPN sample: clock/displayClock/period sit on
+        // comp.status directly, NOT inside comp.status.type.
+        clockSeconds: statusObj.clock ?? null,
+        displayClock: statusObj.displayClock || '',
+        period: statusObj.period || null,
         venue: comp.venue?.fullName || '',
         city: (comp.venue?.address?.city || '').split(',')[0],
         attendance: comp.attendance || null,
@@ -345,6 +395,14 @@ async function fetchAll() {
         recap: comp.headlines?.[0]?.description || '',
         homeId: home.team?.id || null,
         awayId: away.team?.id || null,
+        // Team-level box score stats — only populated by ESPN for finished
+        // (and some live) matches; empty object for scheduled matches.
+        homeStats: statMap(home),
+        awayStats: statMap(away),
+        // Tournament leaders: each competitor carries a 'leaders' array with
+        // the team's current top scorer (name + goal count), per real sample.
+        homeLeader: home.leaders?.[0]?.leaders?.[0] || null,
+        awayLeader: away.leaders?.[0]?.leaders?.[0] || null,
         _slug: ev.season?.slug || '',
         _altNote: comp.altGameNote || '',
       };
@@ -361,6 +419,7 @@ async function fetchAll() {
     updateStats();
     renderSchedule();
     renderBracket();
+    renderStatsTab();
     document.getElementById('errorBanner').classList.remove('visible');
 
   } catch(err) {
@@ -417,6 +476,104 @@ function eventLabel(ev) {
   return `${ev.type || 'Event'}${players ? ' — '+players : ''}`;
 }
 
+// ════════════════════════════════════════════════════════════
+// Stats tab: top scorers leaderboard + per-match team stats
+// ════════════════════════════════════════════════════════════
+// NOTE: ESPN's soccer scoreboard endpoint does not expose a full per-player
+// box score (passes, touches, etc.) — only each team's current top scorer
+// via competitor.leaders[0].leaders[0], confirmed from a real sample. So the
+// "top scorers" section here is a tournament leaderboard built by deduping
+// that one-leader-per-team field across all matches, not a full stat sheet.
+
+// Friendly display names for the team-level stat abbreviations ESPN returns.
+const STAT_LABELS = {
+  PP: 'Possession %', SHOT: 'Total Shots', SOG: 'Shots on Target',
+  FC: 'Fouls Committed', CW: 'Corners Won', A: 'Assists', G: 'Goals',
+  SHAST: 'Shot Assists', APP: 'Appearances',
+};
+// Stats worth visualising as a bar comparison (skip noisy/redundant ones)
+const STAT_BAR_ORDER = ['PP', 'SHOT', 'SOG', 'CW', 'FC'];
+
+function renderLeaderboard() {
+  // Build a map of player -> {team, goals} using the most recent (highest) value seen
+  const byPlayer = {};
+  allMatches.forEach(m => {
+    [{ leader: m.homeLeader, team: m.home }, { leader: m.awayLeader, team: m.away }].forEach(({ leader, team }) => {
+      if (!leader?.athlete?.displayName) return;
+      const name = leader.athlete.displayName;
+      const goals = leader.value || 0;
+      if (!byPlayer[name] || goals > byPlayer[name].goals) {
+        byPlayer[name] = { team, goals };
+      }
+    });
+  });
+
+  const ranked = Object.entries(byPlayer)
+    .map(([name, d]) => ({ name, ...d }))
+    .filter(p => p.goals > 0)
+    .sort((a, b) => b.goals - a.goals)
+    .slice(0, 15);
+
+  if (!ranked.length) {
+    document.getElementById('leaderboardContent').innerHTML = '<div class="no-stats-msg">No goal data yet — check back once matches kick off.</div>';
+    return;
+  }
+
+  const html = ranked.map((p, i) => `
+    <div class="leaderboard-row">
+      <span class="leaderboard-rank${i===0?' top':''}">${i+1}</span>
+      <span class="leaderboard-flag">${flag(p.team)}</span>
+      <span class="leaderboard-name">${p.name}<div class="leaderboard-team">${p.team}</div></span>
+      <span class="leaderboard-goals">${p.goals}</span>
+    </div>`).join('');
+
+  document.getElementById('leaderboardContent').innerHTML = html;
+}
+
+function renderTeamStats() {
+  // Only matches where ESPN has actually populated statistics (non-empty objects)
+  const withStats = allMatches.filter(m =>
+    (Object.keys(m.homeStats||{}).length || Object.keys(m.awayStats||{}).length)
+  ).sort((a,b) => new Date(b.date) - new Date(a.date)); // most recent first
+
+  if (!withStats.length) {
+    document.getElementById('teamStatsContent').innerHTML = '<div class="no-stats-msg">No team stats available yet — these populate once a match kicks off.</div>';
+    return;
+  }
+
+  const html = withStats.map(m => {
+    const sl = STAGE_LABEL[m.stage] || 'GROUP';
+    const bars = STAT_BAR_ORDER.map(key => {
+      const hv = parseFloat(m.homeStats[key]);
+      const av = parseFloat(m.awayStats[key]);
+      if (isNaN(hv) && isNaN(av)) return '';
+      const h = isNaN(hv) ? 0 : hv, a = isNaN(av) ? 0 : av;
+      const total = h + a || 1;
+      const hPct = (h/total*100).toFixed(1), aPct = (a/total*100).toFixed(1);
+      return `<div class="stat-bar-row">
+        <div class="stat-bar-labels"><span>${m.homeStats[key] ?? '–'}</span><span class="stat-name">${STAT_LABELS[key]||key}</span><span>${m.awayStats[key] ?? '–'}</span></div>
+        <div class="stat-bar-track"><div class="stat-bar-home" style="width:${hPct}%"></div><div class="stat-bar-away" style="width:${aPct}%"></div></div>
+      </div>`;
+    }).join('');
+
+    return `<div class="team-stat-card" onclick="openMatchModal('${m.id}')">
+      <div class="team-stat-header">
+        <span>${flag(m.home)} ${m.home}</span>
+        <span class="vs">${sl} · ${m.istDate}</span>
+        <span>${m.away} ${flag(m.away)}</span>
+      </div>
+      ${bars || '<div class="no-stats-msg">No detailed stats for this match.</div>'}
+    </div>`;
+  }).join('');
+
+  document.getElementById('teamStatsContent').innerHTML = html;
+}
+
+function renderStatsTab() {
+  renderLeaderboard();
+  renderTeamStats();
+}
+
 function openMatchModal(matchId) {
   const m = allMatches.find(x => x.id === matchId);
   if (!m) return;
@@ -427,7 +584,7 @@ function openMatchModal(matchId) {
 
   let statusLine = '';
   if (isDone) statusLine = 'Full time';
-  else if (isLive) statusLine = m.statusDetail || 'Live';
+  else if (isLive) statusLine = m.displayClock ? `${m.displayClock}${m.period ? ` · Half ${m.period}` : ''}` : (m.statusDetail || 'Live');
   else statusLine = `Kicks off ${m.istShort} IST`;
 
   // Events sorted chronologically by their order in the array (ESPN already orders them)
@@ -553,7 +710,7 @@ function renderSchedule() {
       const scoreHtml = (isLive||isDone) ? `${m.homeScore} – ${m.awayScore}` : 'vs';
       const scoreClass = isLive ? 'live-score' : '';
       let pill = isDone ? `<span class="status-pill finished">FT</span>`
-        : isLive ? `<span class="status-pill live">🔴 ${m.statusDetail||'LIVE'}</span>`
+        : isLive ? `<span class="status-pill live">🔴 ${m.displayClock || m.statusDetail || 'LIVE'}</span>`
         : `<span class="status-pill scheduled">${m.istTime}</span>`;
       const sl = STAGE_LABEL[m.stage]||'GROUP', sc = STAGE_CLASS[m.stage]||'';
       html += `<div class="match-card ${cardClass}" onclick="openMatchModal('${m.id}')">
@@ -650,7 +807,7 @@ function bMatchHtml(m, label) {
     </div>
     <div class="b-match-meta">
       <span>${label||''}</span>
-      <span>${isDone?'FT':isLive?(m.statusDetail||'LIVE'):m.istShort}</span>
+      <span>${isDone?'FT':isLive?(m.displayClock||m.statusDetail||'LIVE'):m.istShort}</span>
     </div>
   </div>`;
 }
