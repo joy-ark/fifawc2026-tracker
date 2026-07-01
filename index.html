@@ -142,6 +142,7 @@
   .modal-team-name.winner { color: var(--win); }
   .modal-score-big { font-family: var(--font-display); font-size: 40px; letter-spacing: 2px; color: var(--text); display: flex; align-items: center; gap: 10px; }
   .modal-score-big .vs-divider { font-size: 18px; color: var(--muted); font-family: var(--font-body); }
+  .shootout-score { font-size: 18px; color: var(--accent); margin-left: 4px; }
   .modal-status-line { text-align: center; font-size: 11px; color: var(--muted); padding: 0 20px 16px; }
 
   .modal-section { padding: 16px 20px; border-top: 1px solid var(--border); }
@@ -361,6 +362,15 @@ async function fetchAll() {
         away: away.team?.displayName || '?',
         homeScore: home.score ?? null,
         awayScore: away.score ?? null,
+        // Penalty shootout fields, verified from a real FT-Pens sample:
+        // competitor.shootoutScore is separate from the regular score, and
+        // status.type.name becomes "STATUS_FINAL_PEN" with detail "FT-Pens".
+        homeShootoutScore: home.shootoutScore ?? null,
+        awayShootoutScore: away.shootoutScore ?? null,
+        isShootout: status.name === 'STATUS_FINAL_PEN' || status.detail === 'FT-Pens',
+        // notes[] is empty for normal matches but carries a clean human-readable
+        // line for shootouts, e.g. "Paraguay advance 4-3 on penalties"
+        advanceNote: comp.notes?.[0]?.headline || comp.notes?.[0]?.text || '',
         homeWinner: home.winner || false,
         awayWinner: away.winner || false,
         homeAdvance: home.advance || false,
@@ -384,6 +394,7 @@ async function fetchAll() {
           redCard: !!d.redCard,
           ownGoal: !!d.ownGoal,
           penaltyKick: !!d.penaltyKick,
+          shootout: !!d.shootout,
           players: (d.athletesInvolved || []).map(a => a.displayName || a.shortName || '?'),
         })),
         recap: comp.headlines?.[0]?.description || '',
@@ -453,6 +464,7 @@ function eventIcon(ev) {
   if (ev.redCard) return '🟥';
   if (ev.yellowCard) return '🟨';
   if (ev.ownGoal) return '⚽️➖';
+  if (ev.shootout) return '🥅';
   if (ev.penaltyKick && ev.scoringPlay) return '⚽️🅿️';
   if (ev.scoringPlay) return '⚽️';
   return '•';
@@ -463,6 +475,10 @@ function eventLabel(ev) {
   if (ev.redCard) return `Red card${players ? ' — '+players : ''}`;
   if (ev.yellowCard) return `Yellow card${players ? ' — '+players : ''}`;
   if (ev.ownGoal) return `Own goal${players ? ' — '+players : ''}`;
+  if (ev.shootout) {
+    const result = ev.type.toLowerCase().includes('miss') || ev.type.toLowerCase().includes('saved') ? 'Missed' : 'Scored';
+    return `Shootout penalty ${result}${players ? ' — '+players : ''}`;
+  }
   if (ev.scoringPlay) {
     const tag = ev.penaltyKick ? ' (penalty)' : ev.type.toLowerCase().includes('header') ? ' (header)' : '';
     return `Goal${tag}${players ? ' — '+players : ''}`;
@@ -564,7 +580,7 @@ function openMatchModal(matchId) {
   const sl = STAGE_LABEL[m.stage] || 'GROUP';
 
   let statusLine = '';
-  if (isDone) statusLine = 'Full time';
+  if (isDone) statusLine = m.isShootout ? 'Full time (after penalties)' : 'Full time';
   else if (isLive) statusLine = m.displayClock ? `${m.displayClock}${m.period ? ` · Half ${m.period}` : ''}` : (m.statusDetail || 'Live');
   else statusLine = `Kicks off ${m.istShort} IST`;
 
@@ -588,6 +604,17 @@ function openMatchModal(matchId) {
     ? `<div class="modal-status-line">👥 Attendance: ${m.attendance.toLocaleString('en-IN')}</div>`
     : '';
 
+  const advanceHtml = m.isShootout && m.advanceNote
+    ? `<div class="modal-status-line" style="color:var(--accent);font-weight:600;">🥅 ${m.advanceNote}</div>`
+    : '';
+
+  const homeScoreDisplay = (isDone||isLive)
+    ? `${m.homeScore}${m.isShootout && m.homeShootoutScore!==null ? `<span class="shootout-score">(${m.homeShootoutScore})</span>` : ''}`
+    : '–';
+  const awayScoreDisplay = (isDone||isLive)
+    ? `${m.awayScore}${m.isShootout && m.awayShootoutScore!==null ? `<span class="shootout-score">(${m.awayShootoutScore})</span>` : ''}`
+    : '–';
+
   document.getElementById('modalPanel').innerHTML = `
     <div class="modal-header">
       <div>
@@ -602,9 +629,9 @@ function openMatchModal(matchId) {
         <span class="modal-team-name${hw?' winner':''}">${m.home}</span>
       </div>
       <div class="modal-score-big">
-        <span>${isDone||isLive ? m.homeScore : '–'}</span>
+        <span>${homeScoreDisplay}</span>
         <span class="vs-divider">${isPre ? 'VS' : '–'}</span>
-        <span>${isDone||isLive ? m.awayScore : '–'}</span>
+        <span>${awayScoreDisplay}</span>
       </div>
       <div class="modal-team">
         <span class="modal-team-flag">${flag(m.away)}</span>
@@ -612,6 +639,7 @@ function openMatchModal(matchId) {
       </div>
     </div>
     <div class="modal-status-line">${statusLine}</div>
+    ${advanceHtml}
     ${attendanceHtml}
     <div class="modal-section">
       <div class="modal-section-title">Match Events</div>
@@ -689,9 +717,11 @@ function renderSchedule() {
     for (const m of group.matches) {
       const isLive = m.state === 'in', isDone = m.state === 'post';
       const cardClass = isLive ? 'live' : isDone ? 'finished' : 'scheduled';
-      const scoreHtml = (isLive||isDone) ? `${m.homeScore} – ${m.awayScore}` : 'vs';
+      const hsTxt = m.isShootout && m.homeShootoutScore!==null ? ` (${m.homeShootoutScore})` : '';
+      const asTxt = m.isShootout && m.awayShootoutScore!==null ? ` (${m.awayShootoutScore})` : '';
+      const scoreHtml = (isLive||isDone) ? `${m.homeScore}${hsTxt} – ${m.awayScore}${asTxt}` : 'vs';
       const scoreClass = isLive ? 'live-score' : '';
-      let pill = isDone ? `<span class="status-pill finished">FT</span>`
+      let pill = isDone ? `<span class="status-pill finished">${m.isShootout ? 'FT-Pens' : 'FT'}</span>`
         : isLive ? `<span class="status-pill live">🔴 ${m.displayClock || m.statusDetail || 'LIVE'}</span>`
         : `<span class="status-pill scheduled">${m.istTime}</span>`;
       const sl = STAGE_LABEL[m.stage]||'GROUP', sc = STAGE_CLASS[m.stage]||'';
@@ -772,8 +802,8 @@ function bMatchHtml(m, label) {
   }
   const isDone = m.state === 'post', isLive = m.state === 'in';
   const hw = m.homeWinner || m.homeAdvance, aw = m.awayWinner || m.awayAdvance;
-  const hs = isDone||isLive ? m.homeScore : '';
-  const as = isDone||isLive ? m.awayScore : '';
+  const hs = isDone||isLive ? `${m.homeScore}${m.isShootout && m.homeShootoutScore!==null ? `(${m.homeShootoutScore})` : ''}` : '';
+  const as = isDone||isLive ? `${m.awayScore}${m.isShootout && m.awayShootoutScore!==null ? `(${m.awayShootoutScore})` : ''}` : '';
   const liveClass = isLive ? ' live' : '';
 
   return `<div class="b-match${liveClass}" onclick="openMatchModal('${m.id}')">
@@ -789,7 +819,7 @@ function bMatchHtml(m, label) {
     </div>
     <div class="b-match-meta">
       <span>${label||''}</span>
-      <span>${isDone?'FT':isLive?(m.displayClock||m.statusDetail||'LIVE'):m.istShort}</span>
+      <span>${isDone?(m.isShootout?'FT-Pens':'FT'):isLive?(m.displayClock||m.statusDetail||'LIVE'):m.istShort}</span>
     </div>
   </div>`;
 }
