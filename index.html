@@ -95,18 +95,48 @@
   .stage-badge.tp  { background:rgba(120,120,120,.1); color:var(--muted); }
   .stage-badge.final { background:rgba(201,167,58,.2); color:var(--accent); border:1px solid rgba(201,167,58,.3); }
 
-  /* ── Bracket panel (horizontal mirrored) ── */
+  /* ── Bracket panel (flex tree, self-aligning) ── */
   .bracket-panel { padding: 20px 24px 40px; overflow-x: auto; }
   .bracket-title { font-family: var(--font-display); font-size: 14px; letter-spacing: 2px; color: var(--muted); margin-bottom: 20px; }
-
   .round-header { font-size: 10px; font-weight: 700; letter-spacing: 1px; color: var(--muted); text-align: center; padding: 0 8px 12px; text-transform: uppercase; white-space: nowrap; }
   .round-header small { font-weight: 400; letter-spacing: 0; display: block; margin-top: 2px; font-size: 9px; }
 
-  /* Match card */
-  .b-match { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; font-size: 12px; margin: 0 6px; transition: border-color .2s; min-width: 140px; cursor: pointer; }
+  /* ── Tree node structure ──
+     .bt-node  = flex column: [.bt-branch-top, .bt-card-wrap, .bt-branch-bot]
+     .bt-branch = flex row: [.bt-vline, .bt-hline] — draws the L-shaped connector
+     .bt-children = flex column of two .bt-node children
+     The parent .bt-card-wrap naturally centres between the two child branches.
+  */
+  .bt-round { display: flex; flex-direction: column; align-items: center; }
+  .bt-round-label { font-size: 10px; font-weight: 700; letter-spacing: 1px; color: var(--muted); text-align: center; padding: 0 4px 10px; text-transform: uppercase; white-space: nowrap; }
+  .bt-round-label small { font-weight: 400; letter-spacing: 0; display: block; margin-top: 1px; font-size: 9px; }
+
+  .bt-col { display: flex; flex-direction: column; align-items: stretch; }
+  .bt-row { display: flex; flex-direction: row; align-items: stretch; }
+
+  /* A node = children column + connector + card */
+  .bt-node { display: flex; flex-direction: row; align-items: center; }
+  .bt-children { display: flex; flex-direction: column; justify-content: space-around; }
+  .bt-child-group { display: flex; flex-direction: column; }
+
+  /* Connector between children column and parent card:
+     vertical bar spanning the full height of the two children,
+     with two horizontal stubs meeting at the midpoint of each child */
+  .bt-connector-l { display: flex; flex-direction: column; width: 16px; align-self: stretch; }
+  .bt-connector-r { display: flex; flex-direction: column; width: 16px; align-self: stretch; }
+  .bt-conn-top { flex: 1; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); border-radius: 0 0 4px 0; }
+  .bt-conn-bot { flex: 1; border-top: 1px solid var(--border); border-right: 1px solid var(--border); border-radius: 0 4px 0 0; }
+  .bt-conn-top-l { flex: 1; border-bottom: 1px solid var(--border); border-left: 1px solid var(--border); border-radius: 0 0 0 4px; }
+  .bt-conn-bot-l { flex: 1; border-top: 1px solid var(--border); border-left: 1px solid var(--border); border-radius: 4px 0 0 0; }
+
+  /* Horizontal stub from card edge to connector bar */
+  .bt-stub-r { width: 10px; height: 1px; background: var(--border); align-self: center; flex-shrink: 0; }
+  .bt-stub-l { width: 10px; height: 1px; background: var(--border); align-self: center; flex-shrink: 0; }
+
+  /* Match card — same visual as before */
+  .b-match { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; font-size: 12px; transition: border-color .2s; width: 148px; flex-shrink: 0; cursor: pointer; }
   .b-match:hover { border-color: var(--muted); }
   .b-match.live { border-color: rgba(232,64,64,.5); }
-
   .b-team { display: flex; align-items: center; gap: 7px; padding: 6px 10px; border-bottom: 1px solid var(--border); min-height: 32px; }
   .b-team:last-child { border-bottom: none; }
   .b-team.winner { background: rgba(61,186,106,.07); }
@@ -115,13 +145,13 @@
   .b-team-name { font-size: 11px; font-weight: 500; color: var(--text); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .b-team-score { font-family: var(--font-display); font-size: 14px; color: var(--text); margin-left: auto; min-width: 14px; text-align: right; }
   .b-team.tbd .b-team-name { color: var(--muted); font-weight: 400; font-style: italic; }
-
   .b-match-meta { font-size: 9px; color: var(--muted); padding: 3px 10px; background: var(--surface2); border-top: 1px solid var(--border); display: flex; justify-content: space-between; }
 
   /* Trophy / final marker */
   .trophy-slot { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 80px; gap: 8px; }
   .trophy-icon { font-size: 36px; }
   .trophy-date { font-size: 10px; color: var(--muted); font-weight: 600; letter-spacing: 1px; }
+  .bracket-center { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 12px; gap: 16px; }
 
   /* ── Match detail modal ── */
   .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 200; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto; }
@@ -852,129 +882,117 @@ function renderBracket() {
     R4: lk['760500'], R5: lk['760499'], R6: lk['760498'], R7: lk['760501'],
   };
 
-  const r16matches = allMatches.filter(m => m.stage === 'r16').sort((a,b) => new Date(a.date)-new Date(b.date));
-  const r16 = {
-    L0: r16matches[0]||null, L1: r16matches[1]||null,
-    L2: r16matches[2]||null, L3: r16matches[3]||null,
-    R0: r16matches[4]||null, R1: r16matches[5]||null,
-    R2: r16matches[6]||null, R3: r16matches[7]||null,
-  };
+  const r16m = allMatches.filter(m => m.stage === 'r16').sort((a,b) => new Date(a.date)-new Date(b.date));
+  const r16 = { L0:r16m[0]||null, L1:r16m[1]||null, L2:r16m[2]||null, L3:r16m[3]||null,
+                R0:r16m[4]||null, R1:r16m[5]||null, R2:r16m[6]||null, R3:r16m[7]||null };
 
-  const qfMatches = allMatches.filter(m => m.stage === 'qf').sort((a,b) => new Date(a.date)-new Date(b.date));
-  const qf = { L0: qfMatches[0]||null, L1: qfMatches[1]||null, R0: qfMatches[2]||null, R1: qfMatches[3]||null };
+  const qfm = allMatches.filter(m => m.stage === 'qf').sort((a,b) => new Date(a.date)-new Date(b.date));
+  const qf = { L0:qfm[0]||null, L1:qfm[1]||null, R0:qfm[2]||null, R1:qfm[3]||null };
 
-  const sfMatches = allMatches.filter(m => m.stage === 'sf').sort((a,b) => new Date(a.date)-new Date(b.date));
-  const sf = { L: sfMatches[0]||null, R: sfMatches[1]||null };
+  const sfm = allMatches.filter(m => m.stage === 'sf').sort((a,b) => new Date(a.date)-new Date(b.date));
+  const sf = { L:sfm[0]||null, R:sfm[1]||null };
 
-  const tpMatch = allMatches.find(m => m.stage === 'tp') || null;
+  const tpMatch    = allMatches.find(m => m.stage === 'tp')    || null;
   const finalMatch = allMatches.find(m => m.stage === 'final') || null;
 
-  const slot = (match, f1, f2, label) => match ? bMatchHtml(match, label) : tbdSlot(f1, f2);
+  // Card HTML — uses existing bMatchHtml / tbdSlot helpers
+  const card = (match, c1, c2, label) => match ? bMatchHtml(match, label) : tbdSlot(c1, c2);
 
-  const BH = 72; // base match card height (px) — keep in sync with CSS min-height stack
-  const GAP = 8;
+  // Build a left-side tree node: children on left, connectors, then parent card on right.
+  // Each node = flex row: [childrenColumn + connectors] + parentCard
+  // The children column contains two sub-nodes; the connector draws the L-bracket lines.
+  function nodeL(parentCard, child1, child2) {
+    return `
+    <div style="display:flex; flex-direction:row; align-items:stretch;">
+      <div style="display:flex; flex-direction:column;">
+        ${child1}
+        ${child2}
+      </div>
+      <div class="bt-connector-l">
+        <div class="bt-conn-top"></div>
+        <div class="bt-conn-bot"></div>
+      </div>
+      <div style="display:flex; align-items:center;">${parentCard}</div>
+    </div>`;
+  }
+
+  // Build a right-side tree node: parent card on left, connectors, then children on right.
+  function nodeR(parentCard, child1, child2) {
+    return `
+    <div style="display:flex; flex-direction:row; align-items:stretch;">
+      <div style="display:flex; align-items:center;">${parentCard}</div>
+      <div class="bt-connector-r">
+        <div class="bt-conn-top-l"></div>
+        <div class="bt-conn-bot-l"></div>
+      </div>
+      <div style="display:flex; flex-direction:column;">
+        ${child1}
+        ${child2}
+      </div>
+    </div>`;
+  }
+
+  // Wrap a leaf card (R32) with padding so it has spacing above and below
+  const leaf = (m, label) => `<div style="padding:5px 0;">${card(m, null, null, label)}</div>`;
+
+  // LEFT SIDE: R32 → R16 → QF → SF (reading left-to-right = oldest to newest round)
+  // We build inside-out: start from R32 leaves, compose up to SF
+
+  // R16 nodes: each parent between its two R32 leaves
+  const L_r16_0 = nodeL(card(r16.L0, r32.L0, r32.L1, 'R16'), leaf(r32.L0,'R32'), leaf(r32.L1,'R32'));
+  const L_r16_1 = nodeL(card(r16.L1, r32.L2, r32.L3, 'R16'), leaf(r32.L2,'R32'), leaf(r32.L3,'R32'));
+  const L_r16_2 = nodeL(card(r16.L2, r32.L4, r32.L5, 'R16'), leaf(r32.L4,'R32'), leaf(r32.L5,'R32'));
+  const L_r16_3 = nodeL(card(r16.L3, r32.L6, r32.L7, 'R16'), leaf(r32.L6,'R32'), leaf(r32.L7,'R32'));
+
+  // QF nodes: each parent between its two R16 nodes
+  const L_qf_0 = nodeL(card(qf.L0, r16.L0, r16.L1, 'QF'), L_r16_0, L_r16_1);
+  const L_qf_1 = nodeL(card(qf.L1, r16.L2, r16.L3, 'QF'), L_r16_2, L_r16_3);
+
+  // SF node: parent between its two QF nodes
+  const L_sf = nodeL(card(sf.L, qf.L0, qf.L1, 'SF'), L_qf_0, L_qf_1);
+
+  // RIGHT SIDE: SF → QF → R16 → R32 (reading left-to-right = newest to oldest round)
+  const R_r16_0 = nodeR(card(r16.R0, r32.R0, r32.R1, 'R16'), leaf(r32.R0,'R32'), leaf(r32.R1,'R32'));
+  const R_r16_1 = nodeR(card(r16.R1, r32.R2, r32.R3, 'R16'), leaf(r32.R2,'R32'), leaf(r32.R3,'R32'));
+  const R_r16_2 = nodeR(card(r16.R2, r32.R4, r32.R5, 'R16'), leaf(r32.R4,'R32'), leaf(r32.R5,'R32'));
+  const R_r16_3 = nodeR(card(r16.R3, r32.R6, r32.R7, 'R16'), leaf(r32.R6,'R32'), leaf(r32.R7,'R32'));
+
+  const R_qf_0 = nodeR(card(qf.R0, r16.R0, r16.R1, 'QF'), R_r16_0, R_r16_1);
+  const R_qf_1 = nodeR(card(qf.R1, r16.R2, r16.R3, 'QF'), R_r16_2, R_r16_3);
+
+  const R_sf = nodeR(card(sf.R, qf.R0, qf.R1, 'SF'), R_qf_0, R_qf_1);
+
+  const finalCard = finalMatch ? bMatchHtml(finalMatch, 'FINAL') : `<div class="b-match">
+    <div class="b-team tbd"><span class="b-team-name">TBD</span></div>
+    <div class="b-team tbd"><span class="b-team-name">TBD</span></div>
+    <div class="b-match-meta"><span>FINAL · Jul 20, 12:30 AM IST</span></div>
+  </div>`;
+
+  const tpCard = tpMatch ? bMatchHtml(tpMatch, '3RD') : `<div class="b-match">
+    <div class="b-team tbd"><span class="b-team-name">TBD</span></div>
+    <div class="b-team tbd"><span class="b-team-name">TBD</span></div>
+    <div class="b-match-meta"><span>3RD · Jul 19, 2:30 AM IST</span></div>
+  </div>`;
 
   const html = `
-  <div style="display:flex; align-items:stretch; gap:0; min-width:1000px;">
+  <div style="display:flex; flex-direction:row; align-items:center; gap:0;">
+    <!-- LEFT half-bracket: R32 leaves on far left, SF on right -->
+    ${L_sf}
 
-    <!-- LEFT: R32 -->
-    <div style="display:flex; flex-direction:column; gap:${GAP}px; width:148px; flex-shrink:0;">
-      <div class="round-header">Round of 32<br><small>Jun 28 – Jul 3</small></div>
-      ${bMatchHtml(r32.L0,'R32')}
-      ${bMatchHtml(r32.L1,'R32')}
-      ${bMatchHtml(r32.L2,'R32')}
-      ${bMatchHtml(r32.L3,'R32')}
-      ${bMatchHtml(r32.L4,'R32')}
-      ${bMatchHtml(r32.L5,'R32')}
-      ${bMatchHtml(r32.L6,'R32')}
-      ${bMatchHtml(r32.L7,'R32')}
-    </div>
-
-    <!-- LEFT: R16 -->
-    <div style="display:flex; flex-direction:column; gap:0; width:148px; flex-shrink:0; padding-top:${BH/2+GAP/2}px;">
-      <div class="round-header">Round of 16<br><small>Jul 4 – 7</small></div>
-      <div style="display:flex; flex-direction:column; gap:${BH+GAP}px;">
-        ${slot(r16.L0, r32.L0, r32.L1, 'R16')}
-        ${slot(r16.L1, r32.L2, r32.L3, 'R16')}
-        ${slot(r16.L2, r32.L4, r32.L5, 'R16')}
-        ${slot(r16.L3, r32.L6, r32.L7, 'R16')}
-      </div>
-    </div>
-
-    <!-- LEFT: QF -->
-    <div style="display:flex; flex-direction:column; gap:0; width:148px; flex-shrink:0; padding-top:${(BH+GAP)*1.5+BH/2}px;">
-      <div class="round-header">Quarterfinals<br><small>Jul 9 – 11</small></div>
-      <div style="display:flex; flex-direction:column; gap:${(BH+GAP)*3}px;">
-        ${slot(qf.L0, r16.L0, r16.L1, 'QF')}
-        ${slot(qf.L1, r16.L2, r16.L3, 'QF')}
-      </div>
-    </div>
-
-    <!-- LEFT: SF -->
-    <div style="display:flex; flex-direction:column; gap:0; width:148px; flex-shrink:0; padding-top:${(BH+GAP)*3.5+BH/2}px;">
-      <div class="round-header">Semifinal<br><small>Jul 14</small></div>
-      ${slot(sf.L, qf.L0, qf.L1, 'SF')}
-    </div>
-
-    <!-- CENTER: Final + Trophy + 3rd -->
-    <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; min-width:160px; flex-shrink:0; gap:16px; padding: 40px 8px;">
-      <div class="round-header" style="text-align:center;">Final<br><small>Jul 19</small></div>
-      ${finalMatch ? bMatchHtml(finalMatch, 'FINAL') : `<div class="b-match">
-        <div class="b-team tbd"><span class="b-team-name">TBD</span></div>
-        <div class="b-team tbd"><span class="b-team-name">TBD</span></div>
-        <div class="b-match-meta"><span>FINAL · Jul 19, 3:00 PM ET</span></div>
-      </div>`}
+    <!-- CENTER: Final + trophy + 3rd place -->
+    <div class="bracket-center">
+      <div class="bt-round-label">Final<br><small>Jul 19 – 20</small></div>
+      ${finalCard}
       <div class="trophy-slot">
         <div class="trophy-icon">🏆</div>
         <div class="trophy-date">CHAMPIONS</div>
       </div>
-      <div class="round-header" style="text-align:center;">3rd Place<br><small>Jul 18</small></div>
-      ${tpMatch ? bMatchHtml(tpMatch, '3RD') : `<div class="b-match">
-        <div class="b-team tbd"><span class="b-team-name">TBD</span></div>
-        <div class="b-team tbd"><span class="b-team-name">TBD</span></div>
-        <div class="b-match-meta"><span>3RD · Jul 18, 5:00 PM ET</span></div>
-      </div>`}
+      <div class="bt-round-label" style="margin-top:8px;">3rd Place<br><small>Jul 18 – 19</small></div>
+      ${tpCard}
     </div>
 
-    <!-- RIGHT: SF -->
-    <div style="display:flex; flex-direction:column; gap:0; width:148px; flex-shrink:0; padding-top:${(BH+GAP)*3.5+BH/2}px;">
-      <div class="round-header">Semifinal<br><small>Jul 15</small></div>
-      ${slot(sf.R, qf.R0, qf.R1, 'SF')}
-    </div>
-
-    <!-- RIGHT: QF -->
-    <div style="display:flex; flex-direction:column; gap:0; width:148px; flex-shrink:0; padding-top:${(BH+GAP)*1.5+BH/2}px;">
-      <div class="round-header">Quarterfinals<br><small>Jul 9 – 11</small></div>
-      <div style="display:flex; flex-direction:column; gap:${(BH+GAP)*3}px;">
-        ${slot(qf.R0, r16.R0, r16.R1, 'QF')}
-        ${slot(qf.R1, r16.R2, r16.R3, 'QF')}
-      </div>
-    </div>
-
-    <!-- RIGHT: R16 -->
-    <div style="display:flex; flex-direction:column; gap:0; width:148px; flex-shrink:0; padding-top:${BH/2+GAP/2}px;">
-      <div class="round-header">Round of 16<br><small>Jul 4 – 7</small></div>
-      <div style="display:flex; flex-direction:column; gap:${BH+GAP}px;">
-        ${slot(r16.R0, r32.R0, r32.R1, 'R16')}
-        ${slot(r16.R1, r32.R2, r32.R3, 'R16')}
-        ${slot(r16.R2, r32.R4, r32.R5, 'R16')}
-        ${slot(r16.R3, r32.R6, r32.R7, 'R16')}
-      </div>
-    </div>
-
-    <!-- RIGHT: R32 -->
-    <div style="display:flex; flex-direction:column; gap:${GAP}px; width:148px; flex-shrink:0;">
-      <div class="round-header">Round of 32<br><small>Jun 28 – Jul 3</small></div>
-      ${bMatchHtml(r32.R0,'R32')}
-      ${bMatchHtml(r32.R1,'R32')}
-      ${bMatchHtml(r32.R2,'R32')}
-      ${bMatchHtml(r32.R3,'R32')}
-      ${bMatchHtml(r32.R4,'R32')}
-      ${bMatchHtml(r32.R5,'R32')}
-      ${bMatchHtml(r32.R6,'R32')}
-      ${bMatchHtml(r32.R7,'R32')}
-    </div>
-
+    <!-- RIGHT half-bracket: SF on left, R32 leaves on far right -->
+    ${R_sf}
   </div>`;
 
   document.getElementById('bracketContent').innerHTML = html;
