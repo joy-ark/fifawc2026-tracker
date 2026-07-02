@@ -226,9 +226,54 @@
     .title-block h1{font-size:17px;}
     .bracket-panel{padding:16px 14px 40px;}
   }
+
+  /* ── Floating export toolbar ── */
+  .export-toolbar {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: none;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 40px;
+    padding: 10px 18px;
+    box-shadow: 0 4px 24px rgba(0,0,0,.35);
+    z-index: 150;
+    white-space: nowrap;
+  }
+  .export-toolbar.visible { display: flex; }
+  .export-label { font-size: 12px; font-weight: 600; color: var(--muted); }
+  .export-select {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-family: var(--font-body);
+    outline: none;
+    cursor: pointer;
+  }
+  .export-btn {
+    background: var(--accent);
+    border: none;
+    color: #000;
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    font-family: var(--font-body);
+    cursor: pointer;
+    transition: opacity .15s;
+  }
+  .export-btn:hover { opacity: .85; }
+
 </style>
 </head>
-<body data-theme="dark">
+<body data-theme="dark" onload="initTheme()">
 
 <!-- ── Header ── -->
 <header>
@@ -279,6 +324,22 @@
   <div class="main">
     <div class="error-banner" id="errorBanner"></div>
     <div id="scheduleContent"><div class="loading"><div class="spinner"></div>Loading matches…</div></div>
+  </div>
+
+  <!-- ── Floating export toolbar (Schedule tab only) ── -->
+  <div class="export-toolbar" id="exportToolbar">
+    <span class="export-label">📥 Export ICS</span>
+    <select class="export-select" id="exportStage">
+      <option value="all">All Matches</option>
+      <option value="group">Group Stage</option>
+      <option value="r32">Round of 32</option>
+      <option value="r16">Round of 16</option>
+      <option value="qf">Quarterfinals</option>
+      <option value="sf">Semifinals</option>
+      <option value="tp">3rd Place Match</option>
+      <option value="final">Final</option>
+    </select>
+    <button class="export-btn" onclick="exportICS()">Download</button>
   </div>
 </div>
 
@@ -358,6 +419,86 @@ let activeTab = 'schedule';
 // ════════════════════════════════════════════════════════════
 // Fetch
 // ════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════
+// Stage-filtered ICS export
+// ════════════════════════════════════════════════════════════
+const IST_OFFSET_MS = 5.5 * 3600 * 1000;
+const STAGE_ICS_LABEL = {
+  all:'All Matches', group:'Group Stage', r32:'Round of 32',
+  r16:'Round of 16', qf:'Quarterfinals', sf:'Semifinals',
+  tp:'3rd Place Match', final:'Final'
+};
+
+function toISTDate(utcStr) {
+  return new Date(new Date(utcStr).getTime() + IST_OFFSET_MS);
+}
+
+function fmtICS(dt) {
+  // Format as YYYYMMDDTHHMMSS in UTC (we shift to IST then treat as floating local time)
+  const p = n => String(n).padStart(2,'0');
+  return `${dt.getUTCFullYear()}${p(dt.getUTCMonth()+1)}${p(dt.getUTCDate())}T${p(dt.getUTCHours())}${p(dt.getUTCMinutes())}00`;
+}
+
+function exportICS() {
+  const stage = document.getElementById('exportStage').value;
+  const label = STAGE_ICS_LABEL[stage] || stage;
+
+  const filtered = stage === 'all'
+    ? allMatches
+    : allMatches.filter(m => m.stage === stage);
+
+  if (!filtered.length) {
+    alert('No matches found for this stage yet. Check back once the schedule is confirmed.');
+    return;
+  }
+
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//FIFA WC 2026 Tracker//Schedule//EN',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    `X-WR-CALNAME:FIFA WC 2026 – ${label}`,
+    'X-WR-TIMEZONE:Asia/Kolkata',
+  ];
+
+  filtered.forEach((m, i) => {
+    const ist     = toISTDate(m.date);
+    const istEnd  = new Date(ist.getTime() + 2 * 3600 * 1000);
+    const sl      = STAGE_ICS_LABEL[m.stage] || m.stage.toUpperCase();
+    const summary = `🏆 WC2026 | ${sl}: ${m.home} vs ${m.away}`;
+    const desc    = `${sl}\nVenue: ${m.venue}${m.city ? ', '+m.city : ''}\nKick-off: ${m.istTime} IST`;
+
+    lines.push(
+      'BEGIN:VEVENT',
+      `UID:wc2026-export-${m.id}@tracker`,
+      `DTSTART;TZID=Asia/Kolkata:${fmtICS(ist)}`,
+      `DTEND;TZID=Asia/Kolkata:${fmtICS(istEnd)}`,
+      `SUMMARY:${summary}`,
+      `DESCRIPTION:${desc}`,
+      `LOCATION:${m.venue}${m.city ? ', '+m.city : ''}`,
+      'BEGIN:VALARM',
+      'TRIGGER:-PT30M',
+      'ACTION:DISPLAY',
+      'DESCRIPTION:Match starts in 30 minutes!',
+      'END:VALARM',
+      'END:VEVENT'
+    );
+  });
+
+  lines.push('END:VCALENDAR');
+
+  const blob = new Blob([lines.join('\r\n')], { type: 'text/calendar;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `WC2026_${label.replace(/ /g,'_')}.ics`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 async function fetchAll() {
   try {
     const res = await fetch(ESPN);
@@ -473,12 +614,22 @@ function showTab(tab, btn) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-'+tab).classList.add('active');
   btn.classList.add('active');
+  // Show export toolbar only on Schedule tab
+  document.getElementById('exportToolbar').classList.toggle('visible', tab === 'schedule');
+}
+
+function initTheme() {
+  const saved = localStorage.getItem('wc2026_theme') || 'dark';
+  document.body.setAttribute('data-theme', saved);
+  document.getElementById('themeBtn').textContent = saved === 'dark' ? '🌙 Dark' : '☀️ Light';
 }
 
 function toggleTheme() {
   const isDark = document.body.getAttribute('data-theme') === 'dark';
-  document.body.setAttribute('data-theme', isDark ? 'light' : 'dark');
-  document.getElementById('themeBtn').textContent = isDark ? '🌙 Dark' : '☀️ Light';
+  const next = isDark ? 'light' : 'dark';
+  document.body.setAttribute('data-theme', next);
+  document.getElementById('themeBtn').textContent = next === 'dark' ? '🌙 Dark' : '☀️ Light';
+  localStorage.setItem('wc2026_theme', next);
 }
 
 // ════════════════════════════════════════════════════════════
@@ -997,6 +1148,7 @@ function renderBracket() {
 }
 
 
+document.getElementById('exportToolbar').classList.add('visible');
 fetchAll();
 </script>
 </body>
