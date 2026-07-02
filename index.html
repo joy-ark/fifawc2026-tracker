@@ -875,92 +875,100 @@ function tbdSlot(feeder1, feeder2) {
 function renderBracket() {
   const lk = buildMatchLookup();
 
+  // All event IDs verified against real ESPN API responses (July 2026 samples)
   const r32 = {
-    L0: lk['760489'], L1: lk['760492'], L2: lk['760486'], L3: lk['760488'],
-    L4: lk['760497'], L5: lk['760496'], L6: lk['760494'], L7: lk['760493'],
-    R0: lk['760487'], R1: lk['760490'], R2: lk['760491'], R3: lk['760495'],
-    R4: lk['760500'], R5: lk['760499'], R6: lk['760498'], R7: lk['760501'],
+    // Left side (feeds into left half of bracket)
+    L0: lk['760486'], // Canada vs South Africa   → feeds R16.L0 (Canada/Morocco)
+    L1: lk['760488'], // Netherlands vs Morocco   → feeds R16.L0
+    L2: lk['760489'], // Germany vs Paraguay      → feeds R16.L1 (Paraguay/France)
+    L3: lk['760492'], // France vs Sweden         → feeds R16.L1
+    L4: lk['760497'], // Spain vs Austria         → feeds R16.L2 (R32-11W/12W)
+    L5: lk['760496'], // USA vs Bosnia            → feeds R16.L2
+    L6: lk['760494'], // Portugal vs Croatia      → feeds R16.L3 (R32-9W/10W)
+    L7: lk['760493'], // Belgium vs Senegal       → feeds R16.L3
+    // Right side (feeds into right half of bracket)
+    R0: lk['760487'], // Brazil vs Japan          → feeds R16.R0 (Brazil/Norway)
+    R1: lk['760490'], // Ivory Coast vs Norway    → feeds R16.R0
+    R2: lk['760491'], // Mexico vs Ecuador        → feeds R16.R1 (Mexico/England)
+    R3: lk['760495'], // England vs Congo DR      → feeds R16.R1
+    R4: lk['760500'], // Argentina vs Cape Verde  → feeds R16.R2 (R32-14W/16W)
+    R5: lk['760499'], // Australia vs Egypt       → feeds R16.R2
+    R6: lk['760498'], // Switzerland vs Algeria   → feeds R16.R3 (R32-13W/15W)
+    R7: lk['760501'], // Colombia vs Ghana        → feeds R16.R3
   };
 
-  const r16m = allMatches.filter(m => m.stage === 'r16').sort((a,b) => new Date(a.date)-new Date(b.date));
-  const r16 = { L0:r16m[0]||null, L1:r16m[1]||null, L2:r16m[2]||null, L3:r16m[3]||null,
-                R0:r16m[4]||null, R1:r16m[5]||null, R2:r16m[6]||null, R3:r16m[7]||null };
+  // R16 — hardcoded by verified ESPN event IDs from API sample
+  // 760502: Canada vs Morocco    (L0) — Houston, Jul 4
+  // 760503: Paraguay vs France   (L1) — Philadelphia, Jul 4
+  // 760506: R32-11W vs R32-12W  (L2) — AT&T Stadium, Jul 6
+  // 760507: R32-9W  vs R32-10W  (L3) — Lumen Field, Jul 6
+  // 760504: Brazil vs Norway     (R0) — MetLife, Jul 5
+  // 760505: Mexico vs England    (R1) — Mexico City, Jul 5
+  // 760509: R32-14W vs R32-16W  (R2) — Mercedes-Benz, Jul 7
+  // 760508: R32-13W vs R32-15W  (R3) — BC Place, Jul 7
+  const r16 = {
+    L0: lk['760502'], L1: lk['760503'], L2: lk['760506'], L3: lk['760507'],
+    R0: lk['760504'], R1: lk['760505'], R2: lk['760509'], R3: lk['760508'],
+  };
 
-  const qfm = allMatches.filter(m => m.stage === 'qf').sort((a,b) => new Date(a.date)-new Date(b.date));
-  const qf = { L0:qfm[0]||null, L1:qfm[1]||null, R0:qfm[2]||null, R1:qfm[3]||null };
+  // QF — verified from ESPN API (name fields confirm which R16 slots feed each)
+  // 760510: R16W1 vs R16W2 → QF.L0 (Gillette, Boston, Jul 9)
+  // 760512: R16W3 vs R16W4 → QF.L1 (Hard Rock, Miami, Jul 11)
+  // 760511: R16W5 vs R16W6 → QF.R0 (SoFi, LA, Jul 10)
+  // 760513: R16W7 vs R16W8 → QF.R1 (Arrowhead, KC, Jul 11)
+  const qf = {
+    L0: lk['760510'], L1: lk['760512'],
+    R0: lk['760511'], R1: lk['760513'],
+  };
 
-  const sfm = allMatches.filter(m => m.stage === 'sf').sort((a,b) => new Date(a.date)-new Date(b.date));
-  const sf = { L:sfm[0]||null, R:sfm[1]||null };
+  // SF — verified from ESPN API
+  // 760514: QF1W vs QF2W → SF.L (AT&T Dallas, Jul 14)
+  // 760515: QF3W vs QF4W → SF.R (Mercedes-Benz Atlanta, Jul 15)
+  const sf = { L: lk['760514'], R: lk['760515'] };
 
-  const tpMatch    = allMatches.find(m => m.stage === 'tp')    || null;
-  const finalMatch = allMatches.find(m => m.stage === 'final') || null;
+  // 3rd place (760516) and Final (760517) — verified
+  const tpMatch    = lk['760516'] || null;
+  const finalMatch = lk['760517'] || null;
 
-  // Card HTML — uses existing bMatchHtml / tbdSlot helpers
   const card = (match, c1, c2, label) => match ? bMatchHtml(match, label) : tbdSlot(c1, c2);
 
-  // Build a left-side tree node: children on left, connectors, then parent card on right.
-  // Each node = flex row: [childrenColumn + connectors] + parentCard
-  // The children column contains two sub-nodes; the connector draws the L-bracket lines.
+  // Left-side tree node: children on left, connector, parent card on right
   function nodeL(parentCard, child1, child2) {
-    return `
-    <div style="display:flex; flex-direction:row; align-items:stretch;">
-      <div style="display:flex; flex-direction:column;">
-        ${child1}
-        ${child2}
-      </div>
-      <div class="bt-connector-l">
-        <div class="bt-conn-top"></div>
-        <div class="bt-conn-bot"></div>
-      </div>
-      <div style="display:flex; align-items:center;">${parentCard}</div>
+    return `<div style="display:flex;flex-direction:row;align-items:stretch;">
+      <div style="display:flex;flex-direction:column;">${child1}${child2}</div>
+      <div class="bt-connector-l"><div class="bt-conn-top"></div><div class="bt-conn-bot"></div></div>
+      <div style="display:flex;align-items:center;">${parentCard}</div>
     </div>`;
   }
 
-  // Build a right-side tree node: parent card on left, connectors, then children on right.
+  // Right-side tree node: parent card on left, connector, children on right
   function nodeR(parentCard, child1, child2) {
-    return `
-    <div style="display:flex; flex-direction:row; align-items:stretch;">
-      <div style="display:flex; align-items:center;">${parentCard}</div>
-      <div class="bt-connector-r">
-        <div class="bt-conn-top-l"></div>
-        <div class="bt-conn-bot-l"></div>
-      </div>
-      <div style="display:flex; flex-direction:column;">
-        ${child1}
-        ${child2}
-      </div>
+    return `<div style="display:flex;flex-direction:row;align-items:stretch;">
+      <div style="display:flex;align-items:center;">${parentCard}</div>
+      <div class="bt-connector-r"><div class="bt-conn-top-l"></div><div class="bt-conn-bot-l"></div></div>
+      <div style="display:flex;flex-direction:column;">${child1}${child2}</div>
     </div>`;
   }
 
-  // Wrap a leaf card (R32) with padding so it has spacing above and below
   const leaf = (m, label) => `<div style="padding:5px 0;">${card(m, null, null, label)}</div>`;
 
-  // LEFT SIDE: R32 → R16 → QF → SF (reading left-to-right = oldest to newest round)
-  // We build inside-out: start from R32 leaves, compose up to SF
-
-  // R16 nodes: each parent between its two R32 leaves
+  // Build left half inside-out: R32 leaves → R16 → QF → SF
   const L_r16_0 = nodeL(card(r16.L0, r32.L0, r32.L1, 'R16'), leaf(r32.L0,'R32'), leaf(r32.L1,'R32'));
   const L_r16_1 = nodeL(card(r16.L1, r32.L2, r32.L3, 'R16'), leaf(r32.L2,'R32'), leaf(r32.L3,'R32'));
   const L_r16_2 = nodeL(card(r16.L2, r32.L4, r32.L5, 'R16'), leaf(r32.L4,'R32'), leaf(r32.L5,'R32'));
   const L_r16_3 = nodeL(card(r16.L3, r32.L6, r32.L7, 'R16'), leaf(r32.L6,'R32'), leaf(r32.L7,'R32'));
+  const L_qf_0  = nodeL(card(qf.L0, r16.L0, r16.L1, 'QF'),   L_r16_0, L_r16_1);
+  const L_qf_1  = nodeL(card(qf.L1, r16.L2, r16.L3, 'QF'),   L_r16_2, L_r16_3);
+  const L_sf    = nodeL(card(sf.L,  qf.L0,  qf.L1,  'SF'),   L_qf_0,  L_qf_1);
 
-  // QF nodes: each parent between its two R16 nodes
-  const L_qf_0 = nodeL(card(qf.L0, r16.L0, r16.L1, 'QF'), L_r16_0, L_r16_1);
-  const L_qf_1 = nodeL(card(qf.L1, r16.L2, r16.L3, 'QF'), L_r16_2, L_r16_3);
-
-  // SF node: parent between its two QF nodes
-  const L_sf = nodeL(card(sf.L, qf.L0, qf.L1, 'SF'), L_qf_0, L_qf_1);
-
-  // RIGHT SIDE: SF → QF → R16 → R32 (reading left-to-right = newest to oldest round)
+  // Build right half inside-out: R32 leaves → R16 → QF → SF
   const R_r16_0 = nodeR(card(r16.R0, r32.R0, r32.R1, 'R16'), leaf(r32.R0,'R32'), leaf(r32.R1,'R32'));
   const R_r16_1 = nodeR(card(r16.R1, r32.R2, r32.R3, 'R16'), leaf(r32.R2,'R32'), leaf(r32.R3,'R32'));
   const R_r16_2 = nodeR(card(r16.R2, r32.R4, r32.R5, 'R16'), leaf(r32.R4,'R32'), leaf(r32.R5,'R32'));
   const R_r16_3 = nodeR(card(r16.R3, r32.R6, r32.R7, 'R16'), leaf(r32.R6,'R32'), leaf(r32.R7,'R32'));
-
-  const R_qf_0 = nodeR(card(qf.R0, r16.R0, r16.R1, 'QF'), R_r16_0, R_r16_1);
-  const R_qf_1 = nodeR(card(qf.R1, r16.R2, r16.R3, 'QF'), R_r16_2, R_r16_3);
-
-  const R_sf = nodeR(card(sf.R, qf.R0, qf.R1, 'SF'), R_qf_0, R_qf_1);
+  const R_qf_0  = nodeR(card(qf.R0, r16.R0, r16.R1, 'QF'),   R_r16_0, R_r16_1);
+  const R_qf_1  = nodeR(card(qf.R1, r16.R2, r16.R3, 'QF'),   R_r16_2, R_r16_3);
+  const R_sf    = nodeR(card(sf.R,  qf.R0,  qf.R1,  'SF'),   R_qf_0,  R_qf_1);
 
   const finalCard = finalMatch ? bMatchHtml(finalMatch, 'FINAL') : `<div class="b-match">
     <div class="b-team tbd"><span class="b-team-name">TBD</span></div>
@@ -974,36 +982,20 @@ function renderBracket() {
     <div class="b-match-meta"><span>3RD · Jul 19, 2:30 AM IST</span></div>
   </div>`;
 
-  const html = `
-  <div style="display:flex; flex-direction:row; align-items:center; gap:0;">
-    <!-- LEFT half-bracket: R32 leaves on far left, SF on right -->
+  document.getElementById('bracketContent').innerHTML = `
+  <div style="display:flex;flex-direction:row;align-items:center;gap:0;">
     ${L_sf}
-
-    <!-- CENTER: Final + trophy + 3rd place -->
     <div class="bracket-center">
-      <div class="bt-round-label">Final<br><small>Jul 19 – 20</small></div>
+      <div class="bt-round-label">Final<br><small>Jul 19–20</small></div>
       ${finalCard}
-      <div class="trophy-slot">
-        <div class="trophy-icon">🏆</div>
-        <div class="trophy-date">CHAMPIONS</div>
-      </div>
-      <div class="bt-round-label" style="margin-top:8px;">3rd Place<br><small>Jul 18 – 19</small></div>
+      <div class="trophy-slot"><div class="trophy-icon">🏆</div><div class="trophy-date">CHAMPIONS</div></div>
+      <div class="bt-round-label" style="margin-top:8px;">3rd Place<br><small>Jul 18–19</small></div>
       ${tpCard}
     </div>
-
-    <!-- RIGHT half-bracket: SF on left, R32 leaves on far right -->
     ${R_sf}
   </div>`;
-
-  document.getElementById('bracketContent').innerHTML = html;
 }
 
-// ════════════════════════════════════════════════════════════
-// Auto-refresh
-// ════════════════════════════════════════════════════════════
-setInterval(() => {
-  if (allMatches.some(m => m.state === 'in')) fetchAll();
-}, 60000);
 
 fetchAll();
 </script>
