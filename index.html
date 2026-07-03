@@ -575,10 +575,6 @@ async function fetchAll() {
         // (and some live) matches; empty object for scheduled matches.
         homeStats: statMap(home),
         awayStats: statMap(away),
-        // Tournament leaders: each competitor carries a 'leaders' array with
-        // the team's current top scorer (name + goal count), per real sample.
-        homeLeader: home.leaders?.[0]?.leaders?.[0] || null,
-        awayLeader: away.leaders?.[0]?.leaders?.[0] || null,
         _slug: ev.season?.slug || '',
         _altNote: comp.altGameNote || '',
       };
@@ -671,10 +667,13 @@ function eventLabel(ev) {
 // Stats tab: top scorers leaderboard + per-match team stats
 // ════════════════════════════════════════════════════════════
 // NOTE: ESPN's soccer scoreboard endpoint does not expose a full per-player
-// box score (passes, touches, etc.) — only each team's current top scorer
-// via competitor.leaders[0].leaders[0], confirmed from a real sample. So the
-// "top scorers" section here is a tournament leaderboard built by deduping
-// that one-leader-per-team field across all matches, not a full stat sheet.
+// box score (passes, touches, etc.). It does include a per-team "leaders"
+// snapshot on each match, but that field is cached per-match and does not
+// reliably refresh once set, so a player's later goals in other matches can
+// go missing from it. The leaderboard below is instead built by tallying
+// every scoring event (m.events, sourced from comp.details) across all
+// matches — the same authoritative per-goal data used for the match detail
+// modal — so it stays accurate as new matches complete.
 
 // Friendly display names for the team-level stat abbreviations ESPN returns.
 const STAT_LABELS = {
@@ -686,16 +685,23 @@ const STAT_LABELS = {
 const STAT_BAR_ORDER = ['PP', 'SHOT', 'SOG', 'CW', 'FC'];
 
 function renderLeaderboard() {
-  // Build a map of player -> {team, goals} using the most recent (highest) value seen
+  // Build a map of player -> {team, goals} by tallying actual scoring events
+  // from comp.details across all matches. This is the authoritative source —
+  // competitor.leaders[0].leaders[0] (the old approach) is a per-match cached
+  // snapshot ESPN doesn't reliably refresh, so it goes stale as soon as a
+  // player scores again in a later match whose cache lags behind.
+  // Own goals and shootout penalties don't count as tournament goals.
   const byPlayer = {};
   allMatches.forEach(m => {
-    [{ leader: m.homeLeader, team: m.home }, { leader: m.awayLeader, team: m.away }].forEach(({ leader, team }) => {
-      if (!leader?.athlete?.displayName) return;
-      const name = leader.athlete.displayName;
-      const goals = leader.value || 0;
-      if (!byPlayer[name] || goals > byPlayer[name].goals) {
-        byPlayer[name] = { team, goals };
-      }
+    (m.events || []).forEach(ev => {
+      if (!ev.scoringPlay || ev.ownGoal || ev.shootout) return;
+      const teamName = ev.teamId === m.homeId ? m.home : ev.teamId === m.awayId ? m.away : null;
+      if (!teamName) return;
+      ev.players.forEach(name => {
+        if (!name || name === '?') return;
+        if (!byPlayer[name]) byPlayer[name] = { team: teamName, goals: 0 };
+        byPlayer[name].goals += 1;
+      });
     });
   });
 
